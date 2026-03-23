@@ -59,6 +59,20 @@ typedef enum {
     EOF,
     ERROR
 
+}TokenType;
+
+typedef struct token
+{
+    TokenType type;
+    char* value;
+    int line;
 }Token;
+
+typedef struct Lexer Lexer;
+
+Lexer* new_lexer(const char* source);
+void free_lexer(Lexer* l);
+Token next_token(Lexer* l);
+void free_token(Token t);
 
 #endif
