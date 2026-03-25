@@ -56,7 +56,7 @@ typedef enum {
     COMMA,          // ,
 
     // Para controle do código:
-    EOF,
+    TOKEN_EOF,
     ERROR
 
 }TokenType;
