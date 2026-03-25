@@ -68,7 +68,7 @@ typedef struct token
     int line;
 }Token;
 
-typedef struct Lexer Lexer;
+typedef struct lexer Lexer;
 
 Lexer* new_lexer(const char* source);
 void free_lexer(Lexer* l);
