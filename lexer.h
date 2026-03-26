@@ -5,7 +5,7 @@ typedef enum {
     // Constants:
     INT, 
     STR, 
-    BOLL,
+    BOOL,
 
     // Keywords:
     CLASS,
@@ -43,7 +43,7 @@ typedef enum {
     STAR,           // *
     SLASH,          // /
     DOT,            // .
-    STATIC_DISPACH, // @
+    AT, // @
     TILDE,          // ~
 
     //literal de String
