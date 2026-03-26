@@ -101,10 +101,10 @@ static Token skip_block_comment(Lexer *l, int start_line){
 
     if (level > 0)
     {
-        return token_error("Erro dentro do bloco de comentario", l->line);
+        return token_error("Erro dentro do bloco de comentario", start_line);
     }
 
-    return make_token(TOKEN_EOF, NULL, start_line); 
+    return make_token(TOKEN_EOF, NULL, l->line); 
     /*retorna um token vazio, apenhas dizendo que está
     tudo ok dentro do bloco de comentários */
     
