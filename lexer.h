@@ -46,6 +46,8 @@ typedef enum {
     STATIC_DISPACH, // @
     TILDE,          // ~
 
+    //literal de String
+    STR_LIT,
 
     LBRACE,         // {
     RBRACE,         // }

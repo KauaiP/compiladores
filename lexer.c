@@ -105,8 +105,74 @@ static Token skip_block_comment(Lexer *l){
 
     return make_token(TOKEN_EOF, NULL, l->line); 
     /*retorna um token vazio, apenhas dizendo que está
-    tudo ok dentro do bloco de comentários*/
+    tudo ok dentro do bloco de comentários */
     
+}
+
+static Token read_literal_string(Lexer *l){
+
+    int start_line = l->line;
+    advanced(l); // consumindo o caracter ' " '
+
+    char buffer[1024];
+    int len = 0;
+
+    while (!at_end(l) && peek(l) != '"')
+    {
+        if (len >= (int)sizeof(buffer) - 1)
+        {
+            return token_error("String muito longa", start_line);
+        }
+
+        char c = peek(l);
+
+        if (c == '\0')
+        {
+            return token_error("Caracter nulo no meio da string", start_line); // melhorar o nome de erro, talvez seja "string mal terminada"
+        }
+
+        if (c == '\n')
+        {
+            return token_error("Literal de string não terminado", start_line);
+        }
+        
+        if (c == '\\')
+        {
+            advanced(l);
+            char next_char = peek(l);
+
+            switch (next_char)
+            {
+            case 'n': buffer[len++] = '\n'; break;
+            case 't': buffer[len++] = '\t'; break;
+            case 'b': buffer[len++] = '\b'; break;
+            case 'f': buffer[len++] = '\f'; break;
+            case '\\': buffer[len++] = '\\'; break;
+            case '"': buffer[len++] = '"'; break;
+            case '\n': buffer[len++] = '\n'; break;    
+            
+            default: buffer[len++] = next_char; break;
+
+            }
+            advanced(l);
+        }
+
+        else
+        {
+            buffer[len++] = c;
+            advanced(l);
+        }  
+    }
+
+    if (at_end(l))
+    {
+        return token_error("Literal de string nao terminado", start_line);
+    }
+
+    advanced(l); //consome o '"' no final
+    buffer[len] = '\0';
+    make_token(STR_LIT, strdup(buffer), start_line);
+
 }
 
 
