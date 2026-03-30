@@ -172,7 +172,7 @@ Em uma analogia não muito boa, a estrutura **Lexer** é uma *Máquina de Turing
 Com essas estruturas principais definidas, o que temos no resto de *lexer.h* são definições de escopos de funções necessárias para a criação e deleção das mesmas (*next_token()*, *free_token()*, *new_lexer()*, *free_lexer()*).
 
 **OBS**:Daqui em diante explicaremos o toda a engrenagem por trás do nosso Analisador Léxico. Não entraremos detalhadamente em algumas funções pois o código está disponível para acesso aqui neste repositório.
---
+
 No arquivo **lexer.c**, além de implementarmos as funções *next_token()*, *free_token()*, *new_lexer()*, *free_lexer()* nós definimos algumas funções clássicas da etapa de análise léxica. São elas:
  - *peek()*
     Essa função é responsável por "olhar" o caracter atual ao qual o **Lexer** está. Sua implementação consiste em:
@@ -206,7 +206,7 @@ No arquivo **lexer.c**, além de implementarmos as funções *next_token()*, *fr
     }
     ```
     Além de avançar para o próximo caracter da sequência de src essa função verifica se o caracter, depois de avançado, é uma quebra de linha. Caso isso seja verdadeiro, temos uma adição na variável line da estrutura do **Lexer**.
-    --
+    
 - *at_end()*
    Esta função cumpre um papel importante, sendo fundamental e a mais usada no resto do código. Embora sua implementação seja simples, ela é responsável por verificar se o caracter atual de src é '\0'. Isso significaria que estamos no final do arquivo.
    ```c
