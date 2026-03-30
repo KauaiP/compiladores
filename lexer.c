@@ -8,7 +8,7 @@ typedef struct lexer{
     const char *src;
     int line;
     int pos;
-};
+}Lexer;
 
 Lexer *new_lexer(const char *source){
 
@@ -72,7 +72,8 @@ static void skip_line_comment(Lexer *l){
     while (!at_end(l) && peek(l) != '\n')
     {
         advanced(l);
-    }   
+    }
+    l->line++;   
 }
 
 // Adicionado um novo parâmetro line para aumentar a precisão de erro do lexer_next
@@ -103,6 +104,8 @@ static Token skip_block_comment(Lexer *l, int start_line){
     {
         return token_error("Erro dentro do bloco de comentario", start_line);
     }
+
+    l->line++;
 
     return make_token(TOKEN_EOF, NULL, l->line); 
     /*retorna um token vazio, apenhas dizendo que está
@@ -181,7 +184,7 @@ static Token read_number(Lexer *l) {
     int start = l->pos;
     int line  = l->line;
     while (!at_end(l) && isdigit(peek(l)))
-        advance(l);
+        advanced(l);
     int len = l->pos - start;
     char *s = strndup(l->src + start, len); // Desloca para o começo do número e copia o seu tamanho
     return make_token(INT, s, line);
@@ -214,7 +217,7 @@ static Token read_ident(Lexer *l) {
 
     // Avança carcteres de partes de ids
     while (!at_end(l) && (isalnum(peek(l)) || peek(l) == '_'))
-        advance(l);
+        advanced(l);
 
     int len = l->pos - start;
     char *raw = strndup(l->src + start, len);
@@ -251,10 +254,10 @@ static Token read_ident(Lexer *l) {
 }
 
 // Função principal, a cada chamada, pula espaços/comentários e retorna o próximo token da entrada
-Token lexer_next(Lexer *l) {
+Token next_token(Lexer *l) {
     while (1) {
         while (!at_end(l) && isspace(peek(l)))
-            advance(l);
+            advanced(l);
 
         if (at_end(l))
             return make_token(TOKEN_EOF, NULL, l->line);
@@ -262,20 +265,20 @@ Token lexer_next(Lexer *l) {
         int line = l->line;
         char c = peek(l);
 
-        if (c == '-' && peek2(l) == '-') {
+        if (c == '-' && peek_next(l) == '-') {
             skip_line_comment(l);
             continue;
         }
 
-        if (c == '(' && peek2(l) == '*') {
+        if (c == '(' && peek_next(l) == '*') {
             Token t = skip_block_comment(l, line);
             if (t.type == ERROR) return t;
             continue;
         }
 
         // Operador *) fora de comentário é um erro
-        if (c == '*' && peek2(l) == ')') {
-            advance(l); advance(l);
+        if (c == '*' && peek_next(l) == ')') {
+            advanced(l); advanced(l);
             return token_error("Unmatched *)", line);
         }
 
@@ -292,21 +295,21 @@ Token lexer_next(Lexer *l) {
             return read_ident(l);
 
         // Operadores multi-char (símbolos de operações/estrutura de código)
-        advance(l);
+        advanced(l);
         switch (c) {
             case '<':
                 if (peek(l) == '-') { 
-                    advance(l); 
+                    advanced(l); 
                     return make_token(ASSIGN,  NULL, line); 
                 }
                 if (peek(l) == '=') { 
-                    advance(l); 
+                    advanced(l); 
                     return make_token(LE, NULL, line); 
                 }
                 return make_token(LT, NULL, line);
             case '=':
                 if (peek(l) == '>') { 
-                    advance(l); 
+                    advanced(l); 
                     return make_token(DARROW,  NULL, line); 
                 }
                 return make_token(EQ, NULL, line);
@@ -347,6 +350,6 @@ Token lexer_next(Lexer *l) {
     }
 }
 
-void token_free(Token t) { 
+void free_token(Token t) { 
     free(t.value); 
 }
