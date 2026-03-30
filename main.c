@@ -33,10 +33,10 @@ int main(int argc, char **argv) {
     Lexer *l = new_lexer(buffer);
     Token  t;
 
-    while ((t.type = next_token(l).type) != TOKEN_EOF) {
-        printf("Linha:%d valor:%s\n",
+    while ((t = next_token(l)).type != TOKEN_EOF) {
+        printf("Linha:%d tipo:%d valor:%s\n",
                t.line,
-               //t.type,
+               t.type,
                t.value);
         free_token(t);
     }

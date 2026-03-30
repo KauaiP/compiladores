@@ -89,9 +89,11 @@ static Token skip_block_comment(Lexer *l, int start_line){
         if (peek(l) == '(' && peek_next(l) == '*')
         {
             level++; //estamos aumentando mais um nível no comentário
+            advanced(l); advanced(l);
         }
         else if (peek(l) == '*' && peek_next(l) == ')'){
             level--;
+            advanced(l); advanced(l);
         }
         else
         {
@@ -175,7 +177,7 @@ static Token read_literal_string(Lexer *l){
 
     advanced(l); //consome o '"' no final
     buffer[len] = '\0';
-    make_token(STR_LIT, strdup(buffer), start_line);
+    return make_token(STR_LIT, strdup(buffer), start_line);
 
 }
 
