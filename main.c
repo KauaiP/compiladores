@@ -6,7 +6,6 @@
 
 int main(int argc, char **argv) {
 
-   char buffer[100];
     FILE *arquivo = fopen("teste.txt", "r");
 
     if (arquivo == NULL) {
@@ -14,19 +13,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Limpa o buffer com zeros para evitar "lixo" de memória
-    memset(buffer, 0, sizeof(buffer));
+    fseek(arquivo, 0, SEEK_END);
+    long size = ftell(arquivo);
+    rewind(arquivo);
 
-    // fread(onde_salvar, tamanho_do_item, quantos_itens, arquivo)
-    // Lemos 99 para sobrar 1 espaço para o '\0' no final
-    size_t bytesLidos = fread(buffer, 1, 99, arquivo);
-    
-    // Finaliza a string manualmente
-    buffer[bytesLidos] = '\0';
-
-    printf("Conteudo total lido:\n%s\n", buffer);
-    printf("--------------------\n");
-    printf("Bytes lidos: %zu\n", bytesLidos);
+    char *buffer = malloc(size + 1);
+    fread(buffer, 1, size, arquivo);
+    buffer[size] = '\0';
 
     fclose(arquivo);
 
@@ -41,6 +34,7 @@ int main(int argc, char **argv) {
         free_token(t);
     }
     free_lexer(l);
+    free(buffer);
 
     return 0;
 }
