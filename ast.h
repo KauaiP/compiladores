@@ -58,7 +58,7 @@ struct ASTNode{
     NodeKind kind;
     int line;
 
-    union data
+    union
     {
         //nó de um program
         struct{NodeList *classes;} program;
@@ -131,7 +131,7 @@ struct ASTNode{
 
         //nó de booleano
         struct{int value;} bool_lit; // 1 = true, 0 = false
-    };
+    }data;
     
 };
 
