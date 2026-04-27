@@ -358,32 +358,31 @@ static ASTNode *parse_formal(Parser *p) {
 static ASTNode *parse_feature(Parser *p) {
     int line = p->current.line;
     Token name = expect(p, OBJECT_ID, "esperado nome de feature");
-    expect(p, COLON, "esperado ':'");
 
-    /* atributo: ID : TYPE [<- expr] */
-    if (check(p, TYPE_ID)) {
-        Token type = peek(p);
+    if (check(p, LPAREN)) {
+        /* método: ID( formals ) : TYPE { expr } */
         advance(p);
+        NodeList *formals = NULL;
+        while (!check(p, RPAREN)) {
+            formals = ast_list_append(formals, parse_formal(p));
+            if (!match(p, COMMA)) break;
+        }
+        expect(p, RPAREN, "esperado ')' após parâmetros");
+        expect(p, COLON, "esperado ':' após parâmetros");
+        Token return_type = expect(p, TYPE_ID, "esperado tipo de retorno");
+        expect(p, LBRACE, "esperado '{' no corpo do método");
+        ASTNode *body = parse_expression(p, 0);
+        expect(p, RBRACE, "esperado '}' para fechar método");
+        return ast_new_method(line, name.value, formals, return_type.value, body);
+    } else {
+        /* atributo: ID : TYPE [<- expr] */
+        expect(p, COLON, "esperado ':' após nome do atributo");
+        Token type = expect(p, TYPE_ID, "esperado tipo do atributo");
         ASTNode *init = NULL;
         if (match(p, ASSIGN))
             init = parse_expression(p, 0);
         return ast_new_attr(line, name.value, type.value, init);
     }
-
-    /* método: ID( formals ) : TYPE { expr } */
-    expect(p, LPAREN, "esperado '(' no método");
-    NodeList *formals = NULL;
-    while (!check(p, RPAREN)) {
-        formals = ast_list_append(formals, parse_formal(p));
-        if (!match(p, COMMA)) break;
-    }
-    expect(p, RPAREN, "esperado ')' após parâmetros");
-    expect(p, COLON, "esperado ':' após parâmetros");
-    Token return_type = expect(p, TYPE_ID, "esperado tipo de retorno");
-    expect(p, LBRACE, "esperado '{' no corpo do método");
-    ASTNode *body = parse_expression(p, 0);
-    expect(p, RBRACE, "esperado '}' para fechar método");
-    return ast_new_method(line, name.value, formals, return_type.value, body);
 }
 
 static ASTNode *parse_class(Parser *p) {
