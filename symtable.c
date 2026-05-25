@@ -54,8 +54,8 @@ int symtable_add(SymTable *st, const char *name, const char *type){
     }
     
     SymbolEntry *newEntry = malloc(sizeof(SymbolEntry));
-    newEntry->name = name;
-    newEntry->type = type;
+    newEntry->name = strdup(name);
+    newEntry->type = strdup(type);
     newEntry->next = st->current->entries;
     st->current->entries = newEntry;
     return 1;
