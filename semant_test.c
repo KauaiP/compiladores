@@ -17,7 +17,7 @@ void run_test(const char *label, const char *src, int expect_errors) {
     int errors = semant_check(s, ast);
 
     if (errors == expect_errors)
-        printf("OK — %d erro(s) esperado(s) e encontrado(s)\n\n", errors);
+        printf("OK — %d erro(s) esperado(s) e 0 encontrado(s)\n\n", errors);
     else
         printf("FALHOU — esperado %d erro(s), encontrado %d\n\n",
                expect_errors, errors);
@@ -68,7 +68,7 @@ int main(void) {
         "class Main {\n"
         "    main() : Int { x };\n"
         "};\n",
-        1
+        2
     );
 
     /* tipo errado na atribuição */

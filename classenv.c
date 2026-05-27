@@ -17,6 +17,11 @@ ClassEnv *classenv_new(){
 }
 
 void classenv_free(ClassEnv *env){
+    if (!env)
+    {
+        return;
+    }
+    
     ClassEntry *classEntry = env->classes;
     while (classEntry != NULL)
     {
@@ -24,8 +29,8 @@ void classenv_free(ClassEnv *env){
         free(classEntry->name);
         free(classEntry->parent);
 
-        MethodEntry *methodEntry = env->classes->methods;
-        AttrEntry *attrEntry = env->classes->attrs;
+        MethodEntry *methodEntry = classEntry->methods;
+        AttrEntry *attrEntry = classEntry->attrs;
     
         while (methodEntry != NULL)
         {
@@ -52,6 +57,7 @@ void classenv_free(ClassEnv *env){
         classEntry = next;
         
     }
+    free(env);
 }
 
 int classenv_add_class(ClassEnv *env, const char *name, const char *parent){
@@ -64,7 +70,7 @@ int classenv_add_class(ClassEnv *env, const char *name, const char *parent){
     new_class->attrs = NULL;
     new_class->methods = NULL;
     new_class->name = strdup(name);
-    new_class->parent = strdup(parent);
+    new_class->parent = parent ? strdup(parent) : NULL;
     new_class->next = env->classes;
     env->classes = new_class;
     return 1;
@@ -191,27 +197,23 @@ AttrEntry *classenv_lookup_attr(ClassEnv *env, const char *class_name, const cha
 int classenv_check_cycles(ClassEnv *env) {
     ClassEntry *cls = env->classes;
     while (cls != NULL) {
-        const char *slow = cls->name;
-        const char *fast = cls->name;
+        // sobe a cadeia a partir dessa classe
+        const char *current = cls->name;
+        int steps = 0;
+        int total = 0;
 
-        while (fast != NULL) {
-            ClassEntry *fast_cls = classenv_lookup_class(env, fast);
-            if (fast_cls == NULL || fast_cls->parent == NULL)
-            {
-                break;
-            }
+        // conta quantas classes existem
+        ClassEntry *tmp = env->classes;
+        while (tmp != NULL) { total++; tmp = tmp->next; }
 
-            fast = classenv_lookup_class(env, fast_cls->parent) ? fast_cls->parent : NULL;
-
-            ClassEntry *slow_cls = classenv_lookup_class(env, slow);
-            slow = slow_cls->parent;
-
-            if (slow != NULL && fast != NULL && strcmp(slow, fast) == 0)
-            {
-                return 1;
-            } /* ciclo encontrado */
+        while (current != NULL) {
+            ClassEntry *entry = classenv_lookup_class(env, current);
+            if (entry == NULL) break;           // chegou em tipo desconhecido
+            if (entry->parent == NULL) break;   // chegou em Object — sem ciclo
+            current = entry->parent;
+            steps++;
+            if (steps > total) return 1;        // andou mais do que o total de classes — ciclo
         }
-
         cls = cls->next;
     }
     return 0;

@@ -47,6 +47,7 @@ static Token expect(Parser *p, TokenType type, const char *msg) {
         exit(1);
     }
     Token t = p->current;
+    t.value = t.value ? strdup(t.value) : NULL;  // cópia própria antes do advance
     advance(p);
     return t;
 }
@@ -389,7 +390,6 @@ static ASTNode *parse_class(Parser *p) {
     int line = p->current.line;
     expect(p, CLASS, "esperado 'class'");
     Token name = expect(p, TYPE_ID, "esperado nome da classe");
-
     char *parent = NULL;
     if (match(p, INHERITS)) {
         Token parent_tok = expect(p, TYPE_ID, "esperado nome da superclasse");
