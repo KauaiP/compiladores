@@ -31,9 +31,10 @@ void classenv_free(ClassEnv *env){
         {
             MethodEntry *next = methodEntry->next;
             free(methodEntry->name);
-            free(methodEntry->param_count);
-            free(methodEntry->param_types);
             free(methodEntry->return_type);
+            for (int i = 0; i < methodEntry->param_count; i++)
+                free(methodEntry->param_types[i]);
+            free(methodEntry->param_types);
             free(methodEntry);
             methodEntry = next;
         }

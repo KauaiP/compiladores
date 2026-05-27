@@ -34,7 +34,7 @@ void symtable_exit_scope(SymTable *st){
 void symtable_free(SymTable *st){
     while (st->current != NULL)
     {
-        syntable_exit_scope(st);
+        symtable_exit_scope(st);
     }
     free(st);
     
@@ -45,20 +45,6 @@ void symtable_enter_scope(SymTable *st){
     scope->entries = NULL;
     scope->parent = st->current;
     st->current = scope;
-}
-
-int symtable_add(SymTable *st, const char *name, const char *type){
-    if (exist(name, type, st->current))
-    {
-        return 0;
-    }
-    
-    SymbolEntry *newEntry = malloc(sizeof(SymbolEntry));
-    newEntry->name = strdup(name);
-    newEntry->type = strdup(type);
-    newEntry->next = st->current->entries;
-    st->current->entries = newEntry;
-    return 1;
 }
 
 int exist(const char *name, const char *type, Scope *scope){
@@ -73,6 +59,20 @@ int exist(const char *name, const char *type, Scope *scope){
     }
 
     return 0;
+}
+
+int symtable_add(SymTable *st, const char *name, const char *type){
+    if (exist(name, type, st->current))
+    {
+        return 0;
+    }
+    
+    SymbolEntry *newEntry = malloc(sizeof(SymbolEntry));
+    newEntry->name = strdup(name);
+    newEntry->type = strdup(type);
+    newEntry->next = st->current->entries;
+    st->current->entries = newEntry;
+    return 1;
 }
 
 const char* symtable_lookup(SymTable *st, const char *name){
