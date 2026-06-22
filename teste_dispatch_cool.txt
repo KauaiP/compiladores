@@ -1,0 +1,12 @@
+-- Teste 4: dispatch dinâmico
+class Calculadora {
+    soma(a : Int, b : Int) : Int {
+        a + b
+    };
+};
+class TesteDispatch {
+    main() : Int {
+        let c : Calculadora <- new Calculadora in
+            c.soma(3, 4)
+    };
+};

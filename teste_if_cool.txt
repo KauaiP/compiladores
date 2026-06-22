@@ -1,0 +1,10 @@
+-- Teste 1: if/then/else
+class TesteIf {
+    main() : Int {
+        if 3 < 5 then
+            10
+        else
+            20
+        fi
+    };
+};

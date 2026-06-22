@@ -1,0 +1,21 @@
+@TesteIf_main(self: int) {
+  tmp1: int = const 3;
+  tmp2: int = const 5;
+  tmp3: bool = lt tmp1 tmp2;
+  br tmp3 .lbl0 .lbl1;
+.lbl0:
+  tmp4: int = const 10;
+  tmp0: int = id tmp4;
+  jmp .lbl2;
+.lbl1:
+  tmp5: int = const 20;
+  tmp0: int = id tmp5;
+  jmp .lbl2;
+.lbl2:
+  ret tmp0;
+}
+
+@main {
+  self: int = const 0;
+  ret: int = call @Main_main self;
+}
