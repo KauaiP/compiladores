@@ -374,16 +374,37 @@ static void emit_class(CodeGen *cg, ASTNode *node) {
 }
 
 void codegen_run(CodeGen *cg, ASTNode *program) {
-    // gera todas as classes
     NodeList *classes = program->data.program.classes;
+
+    // descobre o nome da classe que tem o método main
+    const char *main_class = NULL;
+    NodeList *tmp = classes;
+    while (tmp != NULL) {
+        ASTNode *cls = tmp->node;
+        NodeList *features = cls->data.class_.features;
+        while (features != NULL) {
+            ASTNode *f = features->node;
+            if (f->kind == NODE_METHOD &&
+                strcmp(f->data.method.name, "main") == 0) {
+                main_class = cls->data.class_.name;
+                break;
+            }
+            features = features->next;
+        }
+        if (main_class != NULL) break;
+        tmp = tmp->next;
+    }
+
+    // gera o código de todas as classes
     while (classes != NULL) {
         emit_class(cg, classes->node);
         classes = classes->next;
     }
 
-    // gera o @main que chama Main_main
+    // gera o @main apontando para a classe correta
     fprintf(cg->out, "@main {\n");
     fprintf(cg->out, "  self: int = const 0;\n");
-    fprintf(cg->out, "  ret: int = call @Main_main self;\n");
+    fprintf(cg->out, "  result: int = call @%s_main self;\n", main_class);
+    fprintf(cg->out, "  print result;\n");
     fprintf(cg->out, "}\n");
 }

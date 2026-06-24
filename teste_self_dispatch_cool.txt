@@ -1,0 +1,9 @@
+-- Teste 3: self dispatch
+class TesteAutoDispatch {
+    dobro(n : Int) : Int {
+        n + n
+    };
+    main() : Int {
+        dobro(7)
+    };
+};

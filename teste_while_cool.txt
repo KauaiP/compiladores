@@ -1,4 +1,3 @@
--- Teste 2: while
 class TesteWhile {
     main() : Int {
         let x : Int <- 0 in {
