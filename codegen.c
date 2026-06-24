@@ -9,7 +9,23 @@ struct codegen {
     int       tmp_count;   // contador de temporários
     int       label_count; // contador de labels
     const char *current_class;
+    char        *var_names[256];
+    char        *var_types[256];
+    int          var_count;
 };
+
+static void track_var(CodeGen *cg, const char *name, const char *type) {
+    cg->var_names[cg->var_count] = strdup(name);
+    cg->var_types[cg->var_count] = strdup(type);
+    cg->var_count++;
+}
+
+static const char *lookup_var_type(CodeGen *cg, const char *name) {
+    for (int i = 0; i < cg->var_count; i++)
+        if (strcmp(cg->var_names[i], name) == 0)
+            return cg->var_types[i];
+    return "Object";
+}
 
 // Gera um novo nome de temporário único: tmp0, tmp1, ...
 static char *new_tmp(CodeGen *cg) {
@@ -27,14 +43,27 @@ static char *new_label(CodeGen *cg) {
 
 CodeGen *codegen_new(ClassEnv *env, FILE *out) {
     CodeGen *cg = malloc(sizeof(CodeGen));
-    cg->env         = env;
-    cg->out         = out;
-    cg->tmp_count   = 0;
-    cg->label_count = 0;
+    cg->env           = env;
+    cg->out           = out;
+    cg->tmp_count     = 0;
+    cg->label_count   = 0;
+    cg->current_class = NULL;
+    cg->var_count     = 0;
+
+    // inicializa os arrays com NULL
+    for (int i = 0; i < 256; i++) {
+        cg->var_names[i] = NULL;
+        cg->var_types[i] = NULL;
+    }
+
     return cg;
 }
 
 void codegen_free(CodeGen *cg) {
+    for (int i = 0; i < cg->var_count; i++) {
+        free(cg->var_names[i]);
+        free(cg->var_types[i]);
+    }
     free(cg);
 }
 
@@ -120,8 +149,7 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
 
         // --- Identificador ---
         case NODE_ID: {
-            // apenas referencia o temporário que já existe com esse nome
-            return strdup(node->data.id.name);
+            return lookup_var_type(cg, node->data.id.name);
         }
 
         // --- Operadores binários aritméticos ---
@@ -274,6 +302,7 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
             NodeList *bindings = node->data.let.binding;
             while (bindings != NULL) {
                 ASTNode *b = bindings->node;
+                track_var(cg, b->data.let_binding.name, b->data.let_binding.type);
                 if (b->data.let_binding.expr != NULL) {
                     char *val = emit_expr(cg, b->data.let_binding.expr);
                     fprintf(cg->out, "  %s: int = id %s;\n",
@@ -297,18 +326,21 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
 
         // --- Self dispatch ---
         case NODE_SELF_DISPATCH: {
-            // Gera chamada: dest: int = call @ClassName_method self arg1 ...;
-            char *dest = new_tmp(cg);
-            fprintf(cg->out, "  %s: int = call @%s_%s self",
-                    dest,
-                    cg->current_class,
-                    node->data.self_dispatch.method);
+            // avalia todos os args ANTES de emitir o call
+            int argc = 0;
+            char *argnames[64];
             NodeList *args = node->data.self_dispatch.args;
             while (args != NULL) {
-                char *a = emit_expr(cg, args->node);
-                fprintf(cg->out, " %s", a);
-                free(a);
+                argnames[argc++] = emit_expr(cg, args->node);
                 args = args->next;
+            }
+
+            char *dest = new_tmp(cg);
+            fprintf(cg->out, "  %s: int = call @%s_%s self",
+                    dest, cg->current_class, node->data.self_dispatch.method);
+            for (int i = 0; i < argc; i++) {
+                fprintf(cg->out, " %s", argnames[i]);
+                free(argnames[i]);
             }
             fprintf(cg->out, ";\n");
             return dest;
@@ -316,28 +348,29 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
 
         // --- Dispatch dinâmico ---
         case NODE_DISPATCH: {
-            const char *obj_class = infer_type(cg, node->data.dispatch.expr_object);
-            char *obj  = emit_expr(cg, node->data.dispatch.expr_object);
-            char *dest = new_tmp(cg);
-            fprintf(cg->out, "  %s: int = call @%s_%s %s",
-                dest,
-                obj_class,                       // ← tipo correto do objeto
-                node->data.dispatch.method,
-                obj);
-            free(obj);
+            // avalia o objeto e todos os args ANTES de emitir o call
+            char *obj = emit_expr(cg, node->data.dispatch.expr_object);
+
+            int argc = 0;
+            char *argnames[64];
             NodeList *args = node->data.dispatch.args;
             while (args != NULL) {
-                char *a = emit_expr(cg, args->node);
-                fprintf(cg->out, " %s", a);
-                free(a);
+                argnames[argc++] = emit_expr(cg, args->node);
                 args = args->next;
             }
+            
+            const char *obj_class = infer_type(cg, node->data.dispatch.expr_object);
+            char *dest = new_tmp(cg);
+            fprintf(cg->out, "  %s: int = call @%s_%s %s",
+                    dest, obj_class, node->data.dispatch.method, obj);
+            for (int i = 0; i < argc; i++) {
+                fprintf(cg->out, " %s", argnames[i]);
+                free(argnames[i]);
+            }
             fprintf(cg->out, ";\n");
+            free(obj);
             return dest;
         }
-
-        default:
-            return emit_const_int(cg, 0);
     }
 }
 
