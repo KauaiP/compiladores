@@ -115,7 +115,7 @@ static char *emit_id(CodeGen *cg, const char *type, const char *src) {
     return dest;
 }
 
-static const char *infer_type(CodeGen *cg, ASTNode *node) {
+static char *infer_type(CodeGen *cg, ASTNode *node) {
     if (node == NULL) return "Object";
     switch (node->kind) {
         case NODE_INT:    return "Int";
@@ -368,7 +368,6 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
                 free(argnames[i]);
             }
             fprintf(cg->out, ";\n");
-            free(obj);
             return dest;
         }
     }
