@@ -344,7 +344,7 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
 static void emit_method(CodeGen *cg, const char *class_name, ASTNode *node) {
     cg->current_class = class_name;
 
-    // cabeçalho da função: @ClassName_method(self: int, param: int, ...)
+    // cabeçalho com tipo de retorno declarado
     fprintf(cg->out, "@%s_%s(self: int",
             class_name, node->data.method.name);
 
@@ -353,7 +353,9 @@ static void emit_method(CodeGen *cg, const char *class_name, ASTNode *node) {
         fprintf(cg->out, ", %s: int", formals->node->data.formal.name);
         formals = formals->next;
     }
-    fprintf(cg->out, ") {\n");
+
+    // ← adicionar o tipo de retorno aqui
+    fprintf(cg->out, "): int {\n");
 
     char *result = emit_expr(cg, node->data.method.expr);
     fprintf(cg->out, "  ret %s;\n", result);
