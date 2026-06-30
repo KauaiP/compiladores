@@ -5,6 +5,7 @@
 #include "semant.h"
 #include "classenv.h"
 #include "codegen.h"
+#include "intern.h"
 
 int main(int argc, char **argv) {
 
@@ -40,5 +41,6 @@ int main(int argc, char **argv) {
     free_parser(p);
     free_lexer(l);
     free(src);
+    intern_free();
     return 0;
 }

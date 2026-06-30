@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "symtable.h"
+#include "intern.h"
 
 SymTable *symtable_new(){
     SymTable *new = malloc(sizeof(SymTable));
@@ -22,7 +23,6 @@ void symtable_exit_scope(SymTable *st){
     {
         SymbolEntry *next = entry->next;
         free(entry->name);
-        free(entry->type);
         free(entry);
         entry = next;
     }
@@ -62,16 +62,16 @@ int exist(const char *name, const char *type, Scope *scope){
 }
 
 int symtable_add(SymTable *st, const char *name, const char *type){
-    if (exist(name, type, st->current))
-    {
-        return 0;
+    SymbolEntry *e = st->current->entries;
+    while (e != NULL) {
+        if (strcmp(e->name, name) == 0) return 0;
+        e = e->next;
     }
-    
-    SymbolEntry *newEntry = malloc(sizeof(SymbolEntry));
-    newEntry->name = strdup(name);
-    newEntry->type = strdup(type);
-    newEntry->next = st->current->entries;
-    st->current->entries = newEntry;
+    SymbolEntry *entry = malloc(sizeof(SymbolEntry));
+    entry->name = strdup(name);
+    entry->type = (char *)intern(type);
+    entry->next = st->current->entries;
+    st->current->entries = entry;
     return 1;
 }
 

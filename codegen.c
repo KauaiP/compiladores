@@ -20,7 +20,7 @@ static void track_var(CodeGen *cg, const char *name, const char *type) {
     cg->var_count++;
 }
 
-static const char *lookup_var_type(CodeGen *cg, const char *name) {
+static char *lookup_var_type(CodeGen *cg, const char *name) {
     for (int i = 0; i < cg->var_count; i++)
         if (strcmp(cg->var_names[i], name) == 0)
             return cg->var_types[i];
@@ -122,9 +122,8 @@ static char *infer_type(CodeGen *cg, ASTNode *node) {
         case NODE_BOOL:   return "Bool";
         case NODE_STRING: return "String";
         case NODE_NEW:    return node->data.new_.type;
-        case NODE_ID: {
-            // consulta ClassEnv para atributos — simplificação
-            return "Object";
+        case NODE_ID: {   
+            return lookup_var_type(cg, node->data.id.name);
         }
         default: return "Object";
     }
@@ -132,7 +131,6 @@ static char *infer_type(CodeGen *cg, ASTNode *node) {
 
 static char *emit_expr(CodeGen *cg, ASTNode *node) {
     if (node == NULL) return emit_const_int(cg, 0);
-
     switch (node->kind) {
 
         // --- Literais ---
@@ -149,7 +147,7 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
 
         // --- Identificador ---
         case NODE_ID: {
-            return lookup_var_type(cg, node->data.id.name);
+           return strdup(node->data.id.name);
         }
 
         // --- Operadores binários aritméticos ---
@@ -374,25 +372,20 @@ static char *emit_expr(CodeGen *cg, ASTNode *node) {
 }
 
 static void emit_method(CodeGen *cg, const char *class_name, ASTNode *node) {
-    cg->current_class = class_name;
-
-    // cabeçalho com tipo de retorno declarado
+    free((char *)cg->current_class);        // libera o anterior
+    cg->current_class = strdup(class_name); // cópia própria
+    
     fprintf(cg->out, "@%s_%s(self: int",
             class_name, node->data.method.name);
-
     NodeList *formals = node->data.method.formals;
     while (formals != NULL) {
         fprintf(cg->out, ", %s: int", formals->node->data.formal.name);
         formals = formals->next;
     }
-
-    // ← adicionar o tipo de retorno aqui
     fprintf(cg->out, "): int {\n");
-
     char *result = emit_expr(cg, node->data.method.expr);
     fprintf(cg->out, "  ret %s;\n", result);
     free(result);
-
     fprintf(cg->out, "}\n\n");
 }
 

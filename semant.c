@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "semant.h"
+#include "intern.h"
 
 /* ------------------------------------------------------------------ */
 /* Criação e liberação                                                  */
@@ -144,9 +145,9 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
     switch (node->kind) {
 
         /* literais */
-        case NODE_INT:    return "Int";
-        case NODE_BOOL:   return "Bool";
-        case NODE_STRING: return "String";
+        case NODE_INT:    return intern("Int");
+        case NODE_BOOL:   return intern("Bool");
+        case NODE_STRING: return intern("String");
 
         /* identificador */
         case NODE_ID: {
@@ -163,7 +164,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                              "variável '%s' não declarada",
                              node->data.id.name);
                     semant_error(s, node->line, msg);
-                    return "Object";
+                    return intern("Object");
                 }
                 return attr->type;
             }
@@ -184,7 +185,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                              "variável '%s' não declarada",
                              node->data.assign.name);
                     semant_error(s, node->line, msg);
-                    return "Object";
+                    return intern("Object");
                 }
                 var_type = attr->type;
             }
@@ -209,7 +210,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             if (strcmp(lt, "Int") != 0 || strcmp(rt, "Int") != 0)
                 semant_error(s, node->line,
                              "operadores aritméticos exigem Int");
-            return "Int";
+            return intern("Int");
         }
 
         case NODE_LT:
@@ -219,7 +220,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             if (strcmp(lt, "Int") != 0 || strcmp(rt, "Int") != 0)
                 semant_error(s, node->line,
                              "operadores de comparação exigem Int");
-            return "Bool";
+            return intern("Bool");
         }
 
         case NODE_EQ: {
@@ -231,7 +232,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                 semant_error(s, node->line,
                              "comparação de igualdade entre tipos incompatíveis");
             }
-            return "Bool";
+            return intern("Bool");
         }
 
         /* operadores unários */
@@ -239,19 +240,19 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             const char *t = check_expr(s, node->data.unary.expr);
             if (strcmp(t, "Int") != 0)
                 semant_error(s, node->line, "'~' exige Int");
-            return "Int";
+            return intern("Int");
         }
 
         case NODE_NOT: {
             const char *t = check_expr(s, node->data.unary.expr);
             if (strcmp(t, "Bool") != 0)
                 semant_error(s, node->line, "'not' exige Bool");
-            return "Bool";
+            return intern("Bool");
         }
 
         case NODE_ISVOID:
             check_expr(s, node->data.unary.expr);
-            return "Bool";
+            return intern("Bool");
 
         /* new */
         case NODE_NEW: {
@@ -280,7 +281,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             if (strcmp(cond, "Bool") != 0)
                 semant_error(s, node->line, "condição do while deve ser Bool");
             check_expr(s, node->data.while_.expr);
-            return "Object";
+            return intern("Object");
         }
 
         /* bloco */
@@ -322,6 +323,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                 bindings = bindings->next;
             }
             const char *body_type = check_expr(s, node->data.let.expr);
+            char *type_copy = strdup(body_type);
             symtable_exit_scope(s->sym);
             return body_type;
         }
@@ -345,7 +347,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                       : classenv_lub(s->env, lub, branch_type);
                 branches = branches->next;
             }
-            return lub ? lub : "Object";
+            return lub ? lub : intern("Object");
         }
 
         /* dispatch dinâmico */
@@ -360,7 +362,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                          "método '%s' não existe em '%s'",
                          node->data.dispatch.method, obj_type);
                 semant_error(s, node->line, msg);
-                return "Object";
+                return intern("Object");
             }
             /* verifica argumentos */
             NodeList *args = node->data.dispatch.args;
@@ -405,7 +407,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                          "método '%s' não existe em '%s'",
                          node->data.static_dispatch.method, cast_type);
                 semant_error(s, node->line, msg);
-                return "Object";
+                return intern("Object");
             }
             NodeList *args = node->data.static_dispatch.args;
             for (int i = 0; i < method->param_count; i++) {
@@ -440,7 +442,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                          "método '%s' não existe em '%s'",
                          node->data.self_dispatch.method, s->current_class);
                 semant_error(s, node->line, msg);
-                return "Object";
+                return intern("Object");
             }
             NodeList *args = node->data.self_dispatch.args;
             for (int i = 0; i < method->param_count; i++) {
@@ -466,7 +468,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
 
         default:
             semant_error(s, node->line, "expressão desconhecida");
-            return "Object";
+            return intern("Object");
     }
 }
 
