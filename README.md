@@ -3,7 +3,7 @@
 ![C](https://img.shields.io/badge/Language-C-00599C?style=for-the-badge&logo=c)
 ![COOL](https://img.shields.io/badge/Source-COOL-green?style=for-the-badge)
 ![BRIL](https://img.shields.io/badge/Target-BRIL-red?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Em_Desenvolvimento-yellow?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Concluído-yellow?style=for-the-badge)
 
 Este projeto consiste no desenvolvimento de um compilador para a linguagem **COOL** (*Classroom Object Oriented Language*), escrito em **C**, com destino à representação intermediária **BRIL** (*Big Red Intermediate Language*).
 
