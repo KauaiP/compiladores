@@ -242,7 +242,97 @@ No arquivo **lexer.c**, além de implementarmos as funções *next_token()*, *fr
     O resto das funções do **lexer.c** se utilizam dessas funções especificadas para gerarem tokens e retorná-los ao programa principal. Elas estão comentadas em código.
 
 ### 2. Análise Sintática
-Ainda será desenvolvido...
+Nesta etapa, o compilador recebe o fluxo de **Tokens** gerado pelo Analisador Léxico e verifica se eles formam estruturas válidas na gramática de **Cool**, construindo uma **Árvore Sintática Abstrata (AST)** que representa o programa de forma hierárquica.
+
+* **Método escolhido:** Recursive Descent Parser para estruturas da linguagem + Pratt Parser para expressões.
+
+* **Destaque:** Essa etapa exigiu decisões de design mais complexas do que a léxica. Vamos destacar as ferramentas e conceitos de **C** que tornaram essa implementação possível:
+
+    - *Union de structs*
+        A AST precisava representar dezenas de tipos de nó diferentes — cada um com campos distintos. A solução em **C** foi utilizar uma `union` de `structs` anônimas dentro da struct principal do nó. Isso permite que cada tipo de nó tenha exatamente os campos que precisa, sem desperdiçar memória:
+        ```c
+        struct ASTNode {
+            NodeKind kind;
+            int line;
+            union {
+                struct { NodeList *classes; } program;
+                struct { char *name; char *parent; NodeList *features; } class_;
+                struct { ASTNode *expr_cond; ASTNode *expr_then; ASTNode *expr_else_; } if_;
+                struct { ASTNode *left_expr; ASTNode *right_expr; } binary;
+                // ...
+            } data;
+        };
+        ```
+        O campo `kind` indica qual variante da union está ativa. Acessar a variante errada é **undefined behavior** em C — o compilador não te protege disso, então é responsabilidade do programador garantir que `node->data.if_` só seja acessado quando `node->kind == NODE_IF`.
+
+    - *Lista encadeada de nós (NodeList)*
+        Estruturas como classes, métodos e blocos têm um número variável de filhos — não é possível usar arrays de tamanho fixo. A solução foi uma lista encadeada simples:
+        ```c
+        typedef struct NodeList {
+            ASTNode *node;
+            struct NodeList *next;
+        } NodeList;
+        ```
+        Toda coleção de nós na AST — features de uma classe, argumentos de um dispatch, expressões de um bloco — é representada por uma `NodeList`. Isso simplifica muito a travessia recursiva nas etapas seguintes.
+
+    - *Struct opaca (forward declaration)*
+        Seguindo o mesmo padrão do Analisador Léxico, a struct do Parser é declarada como opaca no `.h` e definida apenas no `.c`:
+        ```c
+        // parser.h — interface pública
+        typedef struct parser Parser;
+
+        // parser.c — detalhe de implementação
+        struct parser {
+            Lexer *lexer;
+            Token current;
+            Token next;
+        };
+        ```
+        Isso garante encapsulamento — quem inclui `parser.h` sabe o que o parser faz, mas não como ele funciona internamente.
+
+    - *Shallow copy de Token e o problema do dangling pointer*
+        A função `expect()` precisava retornar o token consumido para que o parser pudesse usar seu valor. A implementação ingênua copiava a struct por valor:
+        ```c
+        Token t = p->current;
+        advance(p); // faz free do value de p->current
+        return t;   // t.value aponta para memória liberada!
+        ```
+        Como a cópia é **shallow**, `t.value` e `p->current.value` apontam para o mesmo endereço. Quando `advance()` libera `p->current`, `t.value` vira um **dangling pointer**. A correção foi fazer `strdup` do value antes de avançar:
+        ```c
+        Token t = p->current;
+        t.value = t.value ? strdup(t.value) : NULL;
+        advance(p);
+        return t;
+        ```
+
+* **Implementação:** O parser foi dividido em dois mecanismos complementares que trabalham juntos:
+
+    O **Recursive Descent** cuida das estruturas fixas da linguagem — programa, classes, features e formals. Para cada regra gramatical há uma função dedicada: `parse_class()`, `parse_feature()`, `parse_formal()`. Essas funções usam `expect()` para consumir tokens obrigatórios e constroem os nós da AST com as construtoras definidas no `ast.c`.
+
+    O **Pratt Parser** cuida das expressões, onde a precedência de operadores é o grande desafio. A função central é:
+    ```c
+    static ASTNode *parse_expression(Parser *p, int min_bp);
+    ```
+    Cada operador tem um **binding power** (bp) que representa sua precedência. O algoritmo é iterativo — chama `parse_nud()` para obter o lado esquerdo e entra num loop que consome operadores enquanto o bp do operador atual for maior que `min_bp`. Isso resolve naturalmente a recursão à esquerda que destruiria um parser descendente recursivo ingênuo.
+
+    A tabela de precedências ficou assim:
+    ```c
+    static int binding_power(TokenType type) {
+        switch (type) {
+            case AT: case DOT:   return 80;
+            case TILDE:          return 70;
+            case ISVOID:         return 60;
+            case STAR: case SLASH: return 50;
+            case PLUS: case MINUS: return 40;
+            case LT: case LE: case EQ: return 30;
+            case NOT:            return 20;
+            case ASSIGN:         return 10;
+            default:             return 0;
+        }
+    }
+    ```
+
+---
 
 ### 3. Análise Semântica
 Ainda será desenvolvido...
