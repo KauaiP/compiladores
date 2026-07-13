@@ -240,6 +240,7 @@ No arquivo **lexer.c**, além de implementarmos as funções *next_token()*, *fr
     --
 
     O resto das funções do **lexer.c** se utilizam dessas funções especificadas para gerarem tokens e retorná-los ao programa principal. Elas estão comentadas em código.
+---    
 
 ### 2. Análise Sintática
 Nesta etapa, o compilador recebe o fluxo de **Tokens** gerado pelo Analisador Léxico e verifica se eles formam estruturas válidas na gramática de **Cool**, construindo uma **Árvore Sintática Abstrata (AST)** que representa o programa de forma hierárquica.
@@ -335,10 +336,167 @@ Nesta etapa, o compilador recebe o fluxo de **Tokens** gerado pelo Analisador L�
 ---
 
 ### 3. Análise Semântica
-Ainda será desenvolvido...
+Nesta etapa, o compilador percorre a AST construída pelo Analisador Sintático e verifica se o programa faz **sentido semântico** — tipos corretos, variáveis declaradas, herança válida, métodos existentes. Erros como atribuir uma `String` a uma variável `Int` ou chamar um método inexistente são detectados aqui.
+
+* **Método escolhido:** Travessia recursiva da AST com duas estruturas auxiliares: `SymTable` (tabela de símbolos) e `ClassEnv` (ambiente de classes).
+
+* **Destaque:** Essa foi a etapa mais rica em problemas sutis de gerenciamento de memória em **C**. Os destaques técnicos são:
+
+    - *Tabela de símbolos com escopos encadeados*
+        A `SymTable` é implementada como uma **pilha de escopos**. Cada escopo é uma lista encadeada de entradas (nome → tipo). Entrar em um escopo empilha um novo `Scope`; sair desempilha e libera:
+        ```c
+        typedef struct Scope {
+            SymbolEntry *entries;
+            struct Scope *parent;
+        } Scope;
+        ```
+        A busca por uma variável sobe pelos escopos via o ponteiro `parent` até encontrar ou chegar em `NULL`. Isso implementa naturalmente a regra de que uma variável de escopo interno oculta uma de mesmo nome no escopo externo.
+
+    - *O problema do ponteiro liberado e a solução com string interning*
+        O bug mais insidioso desta etapa surgiu da interação entre a `SymTable` e o retorno de tipos em `check_expr`. Quando `symtable_exit_scope()` era chamado, ele liberava as strings de tipo das entradas do escopo. Porém, `check_expr` retornava ponteiros diretos para essas strings — que viravam lixo de memória assim que o escopo fechava.
+
+        A solução foi implementar **string interning**: uma tabela global de strings únicas que vivem durante todo o programa:
+        ```c
+        const char *intern(const char *s) {
+            for (int i = 0; i < count; i++)
+                if (strcmp(table[i], s) == 0)
+                    return table[i]; // ponteiro estável, sempre válido
+            table[count] = strdup(s);
+            return table[count++];
+        }
+        ```
+        Com isso, todo retorno de tipo em `check_expr` passa pelo `intern()`. Não importa quando escopos são abertos ou fechados — os ponteiros de tipo nunca ficam inválidos porque apontam para a tabela de internação, liberada apenas no final do `main()`.
+
+    - *Detecção de ciclos na hierarquia de herança*
+        O COOL permite herança, mas ciclos como `class A inherits B` + `class B inherits A` são inválidos e precisam ser detectados. A solução usou um limite baseado no total de classes:
+        ```c
+        int steps = 0, total = /* total de classes */;
+        while (current != NULL) {
+            if (entry->parent == NULL) break; // chegou em Object — sem ciclo
+            current = entry->parent;
+            steps++;
+            if (steps > total) return 1; // ciclo detectado
+        }
+        ```
+        Se você subiu mais vezes do que o número total de classes sem chegar em `Object`, é matematicamente impossível que a hierarquia seja acíclica.
+
+    - *LUB — Least Upper Bound*
+        O tipo de um `if/then/else` em COOL é o ancestral comum mais próximo dos tipos dos dois ramos. Isso requer calcular o **LUB** de dois tipos na hierarquia de herança. O algoritmo coleta todos os ancestrais do primeiro tipo e sobe a cadeia do segundo até encontrar o primeiro ancestral em comum.
+
+* **Implementação:** O analisador semântico opera em duas passagens sobre a AST:
+
+    Na **primeira passagem**, `collect_classes()` percorre todos os `NODE_CLASS` do programa e registra cada classe no `ClassEnv` com seu nome e pai. Depois `collect_features()` percorre novamente e registra os métodos e atributos de cada classe.
+
+    Na **segunda passagem**, `check_class()` percorre cada classe e chama `check_expr()` no corpo de cada método. A função `check_expr()` é o coração do analisador — um grande `switch` no `kind` do nó que verifica tipos e retorna o tipo resultante da expressão. Por exemplo, para um `NODE_PLUS` ela verifica se os dois operandos são `Int` e retorna `"Int"`. Para um `NODE_IF` ela calcula o LUB dos tipos dos dois ramos.
+
+    Antes de qualquer passagem, os tipos primitivos de COOL são registrados manualmente no `ClassEnv`:
+    ```c
+    classenv_add_class(env, "Object", NULL);
+    classenv_add_class(env, "Int",    "Object");
+    classenv_add_class(env, "Bool",   "Object");
+    classenv_add_class(env, "String", "Object");
+    classenv_add_class(env, "IO",     "Object");
+    ```
+    Sem isso, qualquer classe sem `inherits` explícito teria seu pai (`Object`) não encontrado no ambiente, gerando falsos positivos de ciclo de herança.
+
+---
 
 ### 4. Geração de Código
-Ainda será desenvolvido...
+Nesta etapa, o compilador percorre a AST validada e gera código na linguagem intermediária **BRIL** (Big Red Intermediate Language). O BRIL é uma linguagem de representação de programas desenvolvida para fins educacionais, onde um programa é uma lista de funções e cada função é uma lista de instruções sobre variáveis temporárias.
+
+* **Método escolhido:** Travessia recursiva da AST com geração de código no formato texto `.bril`, convertido para JSON com a ferramenta `bril2json` e executado com `brili`.
+
+* **Destaque:** Essa etapa exigiu decisões de mapeamento entre dois mundos muito diferentes — o COOL orientado a objetos e o BRIL procedural. Os destaques técnicos são:
+
+    - *Temporários e labels com contadores*
+        O BRIL não tem expressões compostas — cada operação intermediária precisa de uma variável própria. Para gerar nomes únicos automaticamente, o gerador mantém dois contadores:
+        ```c
+        static char *new_tmp(CodeGen *cg) {
+            char *name = malloc(32);
+            snprintf(name, 32, "tmp%d", cg->tmp_count++);
+            return name;
+        }
+
+        static char *new_label(CodeGen *cg) {
+            char *name = malloc(32);
+            snprintf(name, 32, "lbl%d", cg->label_count++);
+            return name;
+        }
+        ```
+        Cada chamada garante um nome único. O resultado de `1 + 2 * 3` vira:
+        ```
+        tmp0: int = const 2;
+        tmp1: int = const 3;
+        tmp2: int = mul tmp0 tmp1;
+        tmp3: int = const 1;
+        tmp4: int = add tmp3 tmp2;
+        ```
+
+    - *O problema da geração de argumentos dentro de chamadas*
+        Um bug sutil surgiu ao gerar chamadas de função com argumentos. A abordagem ingênua emitia os argumentos dentro do `fprintf` da instrução `call`:
+        ```c
+        fprintf(out, "  %s: int = call @%s_%s", dest, class, method);
+        // ERRADO: emit_expr dos args escreve novas instruções no meio da linha!
+        emit_expr(arg1); // escreve "tmp5: int = const 7;\n" no arquivo
+        ```
+        O resultado era instruções quebradas no meio da linha do `call`. A solução foi avaliar **todos os argumentos antes** de emitir a instrução `call`, guardando os nomes dos temporários num array:
+        ```c
+        char *argnames[64];
+        int argc = 0;
+        while (args != NULL) {
+            argnames[argc++] = emit_expr(cg, args->node); // avalia tudo primeiro
+            args = args->next;
+        }
+        fprintf(out, "  %s: int = call @%s_%s", dest, class, method);
+        for (int i = 0; i < argc; i++)
+            fprintf(out, " %s", argnames[i]); // só então emite os nomes
+        fprintf(out, ";\n");
+        ```
+
+    - *Inferência de tipos para dispatch dinâmico*
+        O BRIL não tem orientação a objetos — cada método COOL vira uma função BRIL com convenção de nome `ClassName_methodName`. Para gerar a chamada correta de um dispatch como `c.soma(1, 2)`, o gerador precisa saber que `c` é do tipo `Calculadora` para gerar `@Calculadora_soma` e não `@Object_soma`.
+
+        Isso requer duas funções complementares. `infer_type()` consulta a AST para descobrir o tipo de um nó **sem emitir código**. `track_var()` registra o tipo de cada variável declarada em `let` para que `infer_type()` possa consultá-la depois via `lookup_var_type()`:
+        ```c
+        static const char *infer_type(CodeGen *cg, ASTNode *node) {
+            switch (node->kind) {
+                case NODE_INT:  return "Int";
+                case NODE_NEW:  return node->data.new_.type; // tipo exato
+                case NODE_ID:   return lookup_var_type(cg, node->data.id.name);
+                default:        return "Object";
+            }
+        }
+        ```
+
+    - *Convenção de `self` como ponteiro opaco*
+        O BRIL não tem objetos nativos. A solução adotada foi representar `self` como um `int` opaco — uma simplificação válida para o escopo do projeto. Todo método gerado recebe `self: int` como primeiro parâmetro, e o `@main` instancia `Main` com `self = 0`:
+        ```c
+        fprintf(out, "@main {\n");
+        fprintf(out, "  self: int = const 0;\n");
+        fprintf(out, "  result: int = call @%s_main self;\n", main_class);
+        fprintf(out, "  print result;\n");
+        fprintf(out, "}\n");
+        ```
+
+* **Implementação:** O gerador opera em uma única passagem sobre a AST, produzindo o arquivo `.bril` diretamente:
+
+    `codegen_run()` é o ponto de entrada. Ele primeiro varre todas as classes para descobrir qual delas contém o método `main` — necessário para gerar o `@main` correto independente do nome da classe. Depois chama `emit_class()` para cada classe.
+
+    `emit_class()` percorre as features de uma classe e chama `emit_method()` para cada método encontrado.
+
+    `emit_method()` escreve o cabeçalho da função BRIL com todos os parâmetros formais tipados, chama `emit_expr()` no corpo do método, e fecha com `ret`.
+
+    `emit_expr()` é o coração do gerador — um `switch` no `kind` do nó que emite as instruções BRIL correspondentes e retorna o nome do temporário que contém o resultado. Cada nó da AST tem um mapeamento direto:
+
+    | Nó COOL | Instrução BRIL gerada |
+    |---|---|
+    | `NODE_INT(42)` | `tmpN: int = const 42;` |
+    | `NODE_PLUS(a, b)` | `tmpN: int = add tmpA tmpB;` |
+    | `NODE_IF` | `br cond .then .else` + labels |
+    | `NODE_WHILE` | label de loop + `br` + `jmp` de volta |
+    | `NODE_SELF_DISPATCH` | `tmpN: int = call @Classe_metodo self args...` |
+    | `NODE_DISPATCH` | `tmpN: int = call @TipoObjeto_metodo obj args...` |
+
 
 ---
 
