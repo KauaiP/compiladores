@@ -511,4 +511,20 @@ git clone [https://github.com/seu-usuario/seu-repositorio.git](https://github.co
 cd seu-repositorio
 
 # Compile o projeto
-make
+1. compila o seu compilador
+```bash
+gcc -g *.c -o coolc
+```
+2. gera o .bril a partir do .cool
+```bash
+./coolc teste_if.cool > teste_if.bril
+```
+3. converte o .bril para JSON
+```bash
+bril2json < teste_if.bril > teste_if.json
+```
+
+4. executa com o interpretador
+```bash
+brili < teste_if.json
+```
