@@ -504,17 +504,17 @@ Nesta etapa, o compilador percorre a AST validada e gera código na linguagem in
 ## Como Executar
 
 ```bash
-# Clone o repositório
+# Clone o repositório utilizando git clone
 
 # Compile o projeto na pasta que você realizou o git clone
 # 1. compila o seu compilador
 gcc -g *.c -o coolc
 
 # 2. gera o .bril a partir do .cool
-./coolc teste_if.cool > teste_if.bril
+./coolc seu_arquivo.cool > seu_arquivo.bril
 
 # 3. converte o .bril para JSON
-bril2json < teste_if.bril > teste_if.json
+bril2json < seu_arquivo.bril > seu_arquivo.json
 
 # 4. executa com o interpretador
-brili < teste_if.json
+brili < seu_arquivo.json
