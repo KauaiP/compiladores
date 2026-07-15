@@ -2,14 +2,14 @@
 #define AST_H
 
 typedef enum {
-    /* Estruturas */
+    // Estruturas
     NODE_PROGRAM,
     NODE_CLASS,
     NODE_METHOD,
     NODE_ATTR,
     NODE_FORMAL,
 
-    /* Controle */
+    // Controle
     NODE_ASSIGN,
     NODE_IF,
     NODE_WHILE,
@@ -21,12 +21,12 @@ typedef enum {
     NODE_NEW,
     NODE_ISVOID,
 
-    /* Dispatch */
+    // Dispatch
     NODE_DISPATCH,
     NODE_STATIC_DISPATCH,
     NODE_SELF_DISPATCH,
 
-    /* Operadores binários */
+    // Operadores binários
     NODE_PLUS,
     NODE_MINUS,
     NODE_MUL,
@@ -35,11 +35,11 @@ typedef enum {
     NODE_LE,
     NODE_EQ,
 
-    /* Operadores unários */
+    // Operadores unários
     NODE_NEG,
     NODE_NOT,
 
-    /* Literais e identificador */
+    // Literais e identificador
     NODE_INT,
     NODE_STRING,
     NODE_BOOL,

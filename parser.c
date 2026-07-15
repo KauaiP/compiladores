@@ -5,19 +5,13 @@
 #include "ast.h"
 #include "parser.h"
 
-/* ------------------------------------------------------------------ */
-/* Struct interno                                                       */
-/* ------------------------------------------------------------------ */
-
 struct parser {
     Lexer *lexer;
     Token current;
     Token next;
 };
 
-/* ------------------------------------------------------------------ */
-/* Funções auxiliares                                                   */
-/* ------------------------------------------------------------------ */
+// funções auxiliares
 
 static void advance(Parser *p) {
     free_token(p->current);
@@ -47,14 +41,12 @@ static Token expect(Parser *p, TokenType type, const char *msg) {
         exit(1);
     }
     Token t = p->current;
-    t.value = t.value ? strdup(t.value) : NULL;  // cópia própria antes do advance
+    t.value = t.value ? strdup(t.value) : NULL;
     advance(p);
     return t;
 }
 
-/* ------------------------------------------------------------------ */
-/* Criação do parser                                                    */
-/* ------------------------------------------------------------------ */
+// criação/liberação do parser
 
 Parser *new_parser(Lexer *l) {
     Parser *p = malloc(sizeof(Parser));
@@ -70,18 +62,13 @@ void free_parser(Parser *p) {
     free(p);
 }
 
-/* ------------------------------------------------------------------ */
-/* Forward declarations                                                 */
-/* ------------------------------------------------------------------ */
 
+//forward declarations
 static ASTNode *parse_expression(Parser *p, int min_bp);
 static ASTNode *parse_class(Parser *p);
 static ASTNode *parse_feature(Parser *p);
 
-/* ------------------------------------------------------------------ */
-/* Pratt parser — binding powers                                        */
-/* ------------------------------------------------------------------ */
-
+//Pratt parser — binding powers 
 static int binding_power(TokenType type) {
     switch (type) {
         case ASSIGN:    return 10;
@@ -101,15 +88,13 @@ static int binding_power(TokenType type) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Pratt parser — nud (início de expressão)                            */
-/* ------------------------------------------------------------------ */
 
+//Pratt parser — nud (início de expressão)
 static ASTNode *parse_nud(Parser *p) {
     Token t = peek(p);
     int line = t.line;
 
-    /* Literais */
+    // Literais
     if (check(p, INT)) {
         int value = atoi(t.value);
         advance(p);
@@ -130,12 +115,12 @@ static ASTNode *parse_nud(Parser *p) {
         return ast_new_bool(line, value);
     }
 
-    /* Identificador — pode ser ID simples, assign ou self_dispatch */
+    // Identificador pode ser ID simples, assign ou self_dispatch
     if (check(p, OBJECT_ID)) {
         char *name = strdup(t.value);
         advance(p);
 
-        /* assign: ID <- expr */
+        // assign: ID <- expr
         if (check(p, ASSIGN)) {
             advance(p);
             ASTNode *expr = parse_expression(p, 0);
@@ -144,7 +129,7 @@ static ASTNode *parse_nud(Parser *p) {
             return node;
         }
 
-        /* self_dispatch: ID( args ) */
+        //self_dispatch: ID( args )
         if (check(p, LPAREN)) {
             advance(p);
             NodeList *args = NULL;
@@ -163,35 +148,35 @@ static ASTNode *parse_nud(Parser *p) {
         return node;
     }
 
-    /* new TYPE */
+    // new TYPE 
     if (check(p, NEW)) {
         advance(p);
         Token type = expect(p, TYPE_ID, "esperado tipo após 'new'");
         return ast_new_new(line, type.value);
     }
 
-    /* isvoid expr */
+    // isvoid expr
     if (check(p, ISVOID)) {
         advance(p);
         ASTNode *expr = parse_expression(p, binding_power(ISVOID));
         return ast_new_isvoid(line, expr);
     }
 
-    /* ~ expr */
+    //~ expr
     if (check(p, TILDE)) {
         advance(p);
         ASTNode *expr = parse_expression(p, binding_power(TILDE));
         return ast_new_unary(NODE_NEG, line, expr);
     }
 
-    /* not expr */
+    // not expr
     if (check(p, NOT)) {
         advance(p);
         ASTNode *expr = parse_expression(p, binding_power(NOT));
         return ast_new_unary(NODE_NOT, line, expr);
     }
 
-    /* ( expr ) */
+    // ( expr )
     if (check(p, LPAREN)) {
         advance(p);
         ASTNode *expr = parse_expression(p, 0);
@@ -199,7 +184,7 @@ static ASTNode *parse_nud(Parser *p) {
         return expr;
     }
 
-    /* { expr; expr; ... } */
+    // { expr; expr; ... }
     if (check(p, LBRACE)) {
         advance(p);
         NodeList *exprs = NULL;
@@ -211,7 +196,7 @@ static ASTNode *parse_nud(Parser *p) {
         return ast_new_block(line, exprs);
     }
 
-    /* if expr then expr else expr fi */
+    // if expr then expr else expr fi
     if (check(p, IF)) {
         advance(p);
         ASTNode *cond = parse_expression(p, 0);
@@ -223,7 +208,7 @@ static ASTNode *parse_nud(Parser *p) {
         return ast_new_if(line, cond, then, else_);
     }
 
-    /* while expr loop expr pool */
+    // while expr loop expr pool
     if (check(p, WHILE)) {
         advance(p);
         ASTNode *cond = parse_expression(p, 0);
@@ -233,7 +218,7 @@ static ASTNode *parse_nud(Parser *p) {
         return ast_new_while(line, cond, body);
     }
 
-    /* let ID : TYPE [<- expr] [, ...] in expr */
+    // let ID : TYPE [<- expr] [, ...] in expr
     if (check(p, LET)) {
         advance(p);
         NodeList *bindings = NULL;
@@ -252,7 +237,7 @@ static ASTNode *parse_nud(Parser *p) {
         return ast_new_let(line, bindings, body);
     }
 
-    /* case expr of ID : TYPE => expr; ... esac */
+    // case expr of ID : TYPE => expr; ... esac
     if (check(p, CASE)) {
         advance(p);
         ASTNode *expr = parse_expression(p, 0);
@@ -276,15 +261,13 @@ static ASTNode *parse_nud(Parser *p) {
     exit(1);
 }
 
-/* ------------------------------------------------------------------ */
-/* Pratt parser — led (operador no meio da expressão)                  */
-/* ------------------------------------------------------------------ */
 
+//Pratt parser — led (operador no meio da expressão) 
 static ASTNode *parse_led(Parser *p, ASTNode *left) {
     Token t = peek(p);
     int line = t.line;
 
-    /* Operadores binários */
+    // Operadores binários
     switch (t.type) {
         case PLUS:  advance(p); return ast_new_binary(NODE_PLUS,  line, left, parse_expression(p, binding_power(PLUS)));
         case MINUS: advance(p); return ast_new_binary(NODE_MINUS, line, left, parse_expression(p, binding_power(MINUS)));
@@ -296,7 +279,7 @@ static ASTNode *parse_led(Parser *p, ASTNode *left) {
         default: break;
     }
 
-    /* dispatch: expr.ID( args ) */
+    // dispatch: expr.ID( args )
     if (t.type == DOT) {
         advance(p);
         Token method = expect(p, OBJECT_ID, "esperado nome do método após '.'");
@@ -310,7 +293,7 @@ static ASTNode *parse_led(Parser *p, ASTNode *left) {
         return ast_new_dispatch(line, left, method.value, args);
     }
 
-    /* static dispatch: expr@TYPE.ID( args ) */
+    // static dispatch: expr@TYPE.ID( args )
     if (t.type == AT) {
         advance(p);
         Token type = expect(p, TYPE_ID, "esperado tipo após '@'");
@@ -330,10 +313,8 @@ static ASTNode *parse_led(Parser *p, ASTNode *left) {
     exit(1);
 }
 
-/* ------------------------------------------------------------------ */
-/* parse_expression — loop central do Pratt                            */
-/* ------------------------------------------------------------------ */
 
+// parse_expression — loop central do Pratt
 static ASTNode *parse_expression(Parser *p, int min_bp) {
     ASTNode *left = parse_nud(p);
 
@@ -344,10 +325,8 @@ static ASTNode *parse_expression(Parser *p, int min_bp) {
     return left;
 }
 
-/* ------------------------------------------------------------------ */
-/* Recursive descent — estruturas da linguagem                         */
-/* ------------------------------------------------------------------ */
 
+//Recursive descent — estruturas da linguagem  
 static ASTNode *parse_formal(Parser *p) {
     int line = p->current.line;
     Token name = expect(p, OBJECT_ID, "esperado nome do parâmetro");
@@ -361,7 +340,7 @@ static ASTNode *parse_feature(Parser *p) {
     Token name = expect(p, OBJECT_ID, "esperado nome de feature");
 
     if (check(p, LPAREN)) {
-        /* método: ID( formals ) : TYPE { expr } */
+        // método: ID( formals ) : TYPE { expr }
         advance(p);
         NodeList *formals = NULL;
         while (!check(p, RPAREN)) {
@@ -376,7 +355,7 @@ static ASTNode *parse_feature(Parser *p) {
         expect(p, RBRACE, "esperado '}' para fechar método");
         return ast_new_method(line, name.value, formals, return_type.value, body);
     } else {
-        /* atributo: ID : TYPE [<- expr] */
+        // atributo: ID : TYPE [<- expr]
         expect(p, COLON, "esperado ':' após nome do atributo");
         Token type = expect(p, TYPE_ID, "esperado tipo do atributo");
         ASTNode *init = NULL;
@@ -408,10 +387,7 @@ static ASTNode *parse_class(Parser *p) {
     return ast_new_class(line, name.value, parent, features);
 }
 
-/* ------------------------------------------------------------------ */
-/* Ponto de entrada                                                     */
-/* ------------------------------------------------------------------ */
-
+// ponto de entrada
 ASTNode *parse(Parser *p) {
     int line = p->current.line;
     NodeList *classes = NULL;

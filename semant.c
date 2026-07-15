@@ -4,10 +4,7 @@
 #include "semant.h"
 #include "intern.h"
 
-/* ------------------------------------------------------------------ */
-/* Criação e liberação                                                  */
-/* ------------------------------------------------------------------ */
-
+// criação e liberação
 SemantState *semant_new(void) {
     SemantState *s = malloc(sizeof(SemantState));
     s->env           = classenv_new();
@@ -23,27 +20,18 @@ void semant_free(SemantState *s) {
     free(s);
 }
 
-/* ------------------------------------------------------------------ */
-/* Reporte de erros                                                     */
-/* ------------------------------------------------------------------ */
-
+// reporte de erros
 static void semant_error(SemantState *s, int line, const char *msg) {
     fprintf(stderr, "Erro semântico linha %d: %s\n", line, msg);
     s->errors++;
 }
 
-/* ------------------------------------------------------------------ */
-/* Forward declarations                                                 */
-/* ------------------------------------------------------------------ */
-
+// forward declarations
 static const char *check_expr(SemantState *s, ASTNode *node);
 static void        check_feature(SemantState *s, ASTNode *node);
 static void        check_class(SemantState *s, ASTNode *node);
 
-/* ------------------------------------------------------------------ */
-/* Primeira passagem — registra todas as classes                       */
-/* ------------------------------------------------------------------ */
-
+// primeira passagem - registra todas as classes
 static void collect_classes(SemantState *s, ASTNode *program) {
     NodeList *cls = program->data.program.classes;
     while (cls != NULL) {
@@ -53,7 +41,7 @@ static void collect_classes(SemantState *s, ASTNode *program) {
                              ? node->data.class_.parent
                              : "Object";
 
-        /* classes proibidas de herdar */
+        // classes proibidas de herdar
         if (strcmp(parent, "Int")    == 0 ||
             strcmp(parent, "Bool")   == 0 ||
             strcmp(parent, "String") == 0) {
@@ -77,10 +65,7 @@ static void collect_classes(SemantState *s, ASTNode *program) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Segunda passagem — registra métodos e atributos de cada classe      */
-/* ------------------------------------------------------------------ */
-
+// Segunda passagem — registra métodos e atributos de cada classe
 static void collect_features(SemantState *s, ASTNode *program) {
     NodeList *cls = program->data.program.classes;
     while (cls != NULL) {
@@ -135,34 +120,25 @@ static void collect_features(SemantState *s, ASTNode *program) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Verificação de expressões — retorna o tipo inferido                 */
-/* ------------------------------------------------------------------ */
-
+// Verificação de expressões — retorna o tipo inferido 
 static const char *check_expr(SemantState *s, ASTNode *node) {
     if (node == NULL) return "Object";
 
     switch (node->kind) {
 
-        /* literais */
+        // literais
         case NODE_INT:    return intern("Int");
         case NODE_BOOL:   return intern("Bool");
         case NODE_STRING: return intern("String");
 
-        /* identificador */
         case NODE_ID: {
-            const char *type = symtable_lookup(s->sym,
-                                               node->data.id.name);
+            const char *type = symtable_lookup(s->sym, node->data.id.name);
             if (type == NULL) {
-                /* tenta como atributo da classe atual */
-                AttrEntry *attr = classenv_lookup_attr(s->env,
-                                      s->current_class,
-                                      node->data.id.name);
+                // tenta como atributo da classe atual 
+                AttrEntry *attr = classenv_lookup_attr(s->env, s->current_class, node->data.id.name);
                 if (attr == NULL) {
                     char msg[128];
-                    snprintf(msg, sizeof(msg),
-                             "variável '%s' não declarada",
-                             node->data.id.name);
+                    snprintf(msg, sizeof(msg), "variável '%s' não declarada", node->data.id.name);
                     semant_error(s, node->line, msg);
                     return intern("Object");
                 }
@@ -171,19 +147,14 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return type;
         }
 
-        /* atribuição */
         case NODE_ASSIGN: {
-            const char *var_type = symtable_lookup(s->sym,
-                                                   node->data.assign.name);
+            const char *var_type = symtable_lookup(s->sym, node->data.assign.name);
+                                                  
             if (var_type == NULL) {
-                AttrEntry *attr = classenv_lookup_attr(s->env,
-                                      s->current_class,
-                                      node->data.assign.name);
+                AttrEntry *attr = classenv_lookup_attr(s->env, s->current_class, node->data.assign.name);     
                 if (attr == NULL) {
                     char msg[128];
-                    snprintf(msg, sizeof(msg),
-                             "variável '%s' não declarada",
-                             node->data.assign.name);
+                    snprintf(msg, sizeof(msg),"variável '%s' não declarada", node->data.assign.name);
                     semant_error(s, node->line, msg);
                     return intern("Object");
                 }
@@ -200,7 +171,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return expr_type;
         }
 
-        /* operadores binários */
+        // operadores binários
         case NODE_PLUS:
         case NODE_MINUS:
         case NODE_MUL:
@@ -235,7 +206,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return intern("Bool");
         }
 
-        /* operadores unários */
+        // operadores unários
         case NODE_NEG: {
             const char *t = check_expr(s, node->data.unary.expr);
             if (strcmp(t, "Int") != 0)
@@ -254,7 +225,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             check_expr(s, node->data.unary.expr);
             return intern("Bool");
 
-        /* new */
+        // new
         case NODE_NEW: {
             const char *type = node->data.new_.type;
             if (classenv_lookup_class(s->env, type) == NULL) {
@@ -265,7 +236,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return type;
         }
 
-        /* if */
+        // if
         case NODE_IF: {
             const char *cond = check_expr(s, node->data.if_.expr_cond);
             if (strcmp(cond, "Bool") != 0)
@@ -275,7 +246,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return classenv_lub(s->env, then, els);
         }
 
-        /* while */
+        // while
         case NODE_WHILE: {
             const char *cond = check_expr(s, node->data.while_.expr_cond);
             if (strcmp(cond, "Bool") != 0)
@@ -284,7 +255,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return intern("Object");
         }
 
-        /* bloco */
+        // bloco
         case NODE_BLOCK: {
             const char *type = "Object";
             NodeList *exprs = node->data.block.exprs;
@@ -295,7 +266,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return type;
         }
 
-        /* let */
+        // let
         case NODE_LET: {
             symtable_enter_scope(s->sym);
             NodeList *bindings = node->data.let.binding;
@@ -328,7 +299,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return body_type;
         }
 
-        /* case */
+        // case 
         case NODE_CASE: {
             check_expr(s, node->data.case_.expr);
             const char *lub = NULL;
@@ -350,7 +321,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return lub ? lub : intern("Object");
         }
 
-        /* dispatch dinâmico */
+        // dispatch dinâmico
         case NODE_DISPATCH: {
             const char *obj_type = check_expr(s,
                                        node->data.dispatch.expr_object);
@@ -364,7 +335,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
                 semant_error(s, node->line, msg);
                 return intern("Object");
             }
-            /* verifica argumentos */
+            // verifica argumentos
             NodeList *args = node->data.dispatch.args;
             for (int i = 0; i < method->param_count; i++) {
                 if (args == NULL) {
@@ -387,7 +358,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return method->return_type;
         }
 
-        /* dispatch estático */
+        // dispatch estático
         case NODE_STATIC_DISPATCH: {
             const char *obj_type = check_expr(s,
                                        node->data.static_dispatch.expr_object);
@@ -431,7 +402,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
             return method->return_type;
         }
 
-        /* self dispatch */
+        // self dispatch 
         case NODE_SELF_DISPATCH: {
             MethodEntry *method = classenv_lookup_method(s->env,
                                       s->current_class,
@@ -472,10 +443,7 @@ static const char *check_expr(SemantState *s, ASTNode *node) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Verificação de features                                              */
-/* ------------------------------------------------------------------ */
-
+// Verificação de features
 static void check_feature(SemantState *s, ASTNode *node) {
     if (node->kind == NODE_ATTR) {
         if (node->data.attr.expr != NULL) {
@@ -493,7 +461,7 @@ static void check_feature(SemantState *s, ASTNode *node) {
     } else if (node->kind == NODE_METHOD) {
         symtable_enter_scope(s->sym);
 
-        /* adiciona parâmetros ao escopo */
+        // adiciona parâmetros ao escopo
         NodeList *formals = node->data.method.formals;
         while (formals != NULL) {
             ASTNode *f = formals->node;
@@ -517,16 +485,13 @@ static void check_feature(SemantState *s, ASTNode *node) {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Verificação de classes                                               */
-/* ------------------------------------------------------------------ */
-
+// Verificação de classes 
 static void check_class(SemantState *s, ASTNode *node) {
     s->current_class = node->data.class_.name;
 
     symtable_enter_scope(s->sym);
 
-    /* adiciona atributos da classe ao escopo */
+    // adiciona atributos da classe ao escopo
     NodeList *features = node->data.class_.features;
     while (features != NULL) {
         ASTNode *f = features->node;
@@ -535,7 +500,7 @@ static void check_class(SemantState *s, ASTNode *node) {
         features = features->next;
     }
 
-    /* verifica cada feature */
+    // verifica cada feature
     features = node->data.class_.features;
     while (features != NULL) {
         check_feature(s, features->node);
@@ -545,21 +510,18 @@ static void check_class(SemantState *s, ASTNode *node) {
     symtable_exit_scope(s->sym);
 }
 
-/* ------------------------------------------------------------------ */
-/* Ponto de entrada                                                     */
-/* ------------------------------------------------------------------ */
-
+// Ponto de entrada
 int semant_check(SemantState *s, ASTNode *program) {
-    /* passagem 1: registra classes */
+    // passagem 1: registra classes
     collect_classes(s, program);
 
-    /* passagem 2: registra métodos e atributos */
+    // passagem 2: registra métodos e atributos
     collect_features(s, program);
 
-    /* se há erros estruturais, não adianta continuar */
+    // se há erros estruturais, não adianta continuar
     if (s->errors > 0) return s->errors;
 
-    /* passagem 3: verifica tipos em cada classe */
+    // passagem 3: verifica tipos em cada classe
     NodeList *classes = program->data.program.classes;
     while (classes != NULL) {
         check_class(s, classes->node);

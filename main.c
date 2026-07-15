@@ -9,7 +9,6 @@
 
 int main(int argc, char **argv) {
 
-    // lê o arquivo fonte
     FILE *f = fopen(argv[1], "r");
     if (!f) { perror("fopen"); return 1; }
     fseek(f, 0, SEEK_END);
@@ -20,7 +19,6 @@ int main(int argc, char **argv) {
     src[size] = '\0';
     fclose(f);
 
-    // fases do compilador
     Lexer   *l = new_lexer(src);
     Parser  *p = new_parser(l);
     ASTNode *ast = parse(p);
@@ -32,7 +30,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // geração de código para stdout
     CodeGen *cg = codegen_new(s->env, stdout);
     codegen_run(cg, ast);
 

@@ -24,12 +24,12 @@ void free_lexer(Lexer *l){
     free(l);
 }
 
-static char peek(Lexer *l){ // aqui estamos olhando (retornando) o caracter atual
+static char peek(Lexer *l){
 
     return l->src[l->pos];
 }
 
-static char peek_next(Lexer *l){ //aqui estamos olhando (retornando) o carcter poestrior para análise
+static char peek_next(Lexer *l){ //aqui estamos olhando (retornando) o carcter posterior para análise
 
     return l->src[l->pos + 1];
 }
@@ -49,8 +49,7 @@ static int at_end(Lexer *l){
     return l->src[l->pos] == '\0';
 }
 
-static Token make_token(TokenType type, char *value, int line){ //cria um token para análise
-
+static Token make_token(TokenType type, char *value, int line){ 
     Token t;
     t.type = type;
     t.value = value;
@@ -58,12 +57,10 @@ static Token make_token(TokenType type, char *value, int line){ //cria um token 
     return t;
 }
 
-static Token token_error(const char *msg, int line){ //cria um token de erro
+static Token token_error(const char *msg, int line){
 
     return make_token(ERROR, strdup(msg), line);
 }
-
-//strdup() é uma função que aloca uma string em outra variável. OBS: tem que fazer o free() nessa nova variável
 
 // A sessão seguinte é voltada para as funções que ignoram comentários
 
@@ -88,7 +85,7 @@ static Token skip_block_comment(Lexer *l, int start_line){
 
         if (peek(l) == '(' && peek_next(l) == '*')
         {
-            level++; //estamos aumentando mais um nível no comentário
+            level++; //aumentando mais um nível no comentário
             advanced(l); advanced(l);
         }
         else if (peek(l) == '*' && peek_next(l) == ')'){
@@ -110,8 +107,7 @@ static Token skip_block_comment(Lexer *l, int start_line){
     l->line++;
 
     return make_token(TOKEN_EOF, NULL, l->line); 
-    /*retorna um token vazio, apenhas dizendo que está
-    tudo ok dentro do bloco de comentários */
+    //retorna um token vazio, apenhas dizendo que está tudo ok dentro do bloco de comentários
     
 }
 
@@ -134,7 +130,7 @@ static Token read_literal_string(Lexer *l){
 
         if (c == '\0')
         {
-            return token_error("Caracter nulo no meio da string", start_line); // melhorar o nome de erro, talvez seja "string mal terminada"
+            return token_error("Caracter nulo no meio da string", start_line);
         }
 
         if (c == '\n')
@@ -208,7 +204,6 @@ static struct {
     {"not",      NOT},
 };
 
- // Define o N como tamanho total do vetor em bytes (padrão de C)
 #define N_KEYWORDS (sizeof(KEYWORDS) / sizeof(KEYWORDS[0]))
 
 static Token read_ident(Lexer *l) {
@@ -217,7 +212,6 @@ static Token read_ident(Lexer *l) {
     int start_line = l->line;
     int first_upper = isupper(peek(l));
 
-    // Avança carcteres de partes de ids
     while (!at_end(l) && (isalnum(peek(l)) || peek(l) == '_'))
         advanced(l);
 
@@ -231,7 +225,7 @@ static Token read_ident(Lexer *l) {
     lower[len] = '\0';
 
     if (!first_upper) {
-        if (strcmp(lower, "true")  == 0) { // RETORNA 0 SE FOR IGUAL (POR ALGUM MOTIVO)
+        if (strcmp(lower, "true")  == 0) {
             free(raw); 
             return make_token(BOOL, strdup("true"),  start_line); 
         }
@@ -251,7 +245,7 @@ static Token read_ident(Lexer *l) {
         return make_token(OBJECT_ID, raw, start_line);
     }
 
-    // Começa com maiúscula: TypeID (Verificar Self-Type depois)
+    // Começa com maiúscula: TypeID
     return make_token(TYPE_ID, raw, start_line);
 }
 

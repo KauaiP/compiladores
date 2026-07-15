@@ -505,12 +505,8 @@ Nesta etapa, o compilador percorre a AST validada e gera código na linguagem in
 
 ```bash
 # Clone o repositório
-git clone [https://github.com/seu-usuario/seu-repositorio.git](https://github.com/seu-usuario/seu-repositorio.git)
 
-# Entre na pasta
-cd seu-repositorio
-
-# Compile o projeto
+# Compile o projeto na pasta que você realizou o git clone
 # 1. compila o seu compilador
 gcc -g *.c -o coolc
 
